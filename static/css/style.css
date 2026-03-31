@@ -1,0 +1,33 @@
+body { font-family: 'Share Tech Mono', monospace; }
+
+/* Custom Slider */
+#crisis-slider::-webkit-slider-runnable-track { background: #1e293b; height: 4px; }
+#crisis-slider::-webkit-slider-thumb {
+    appearance: none;
+    height: 16px; width: 16px;
+    background: #10b981;
+    border: 2px solid #064e3b;
+    margin-top: -6px;
+    box-shadow: 0 0 10px #10b981;
+}
+
+/* Animation Pulse pour l'alerte */
+@keyframes alert-pulse {
+    0% { box-shadow: inset 0 0 10px rgba(239, 68, 68, 0); }
+    50% { box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.4); }
+    100% { box-shadow: inset 0 0 10px rgba(239, 68, 68, 0); }
+}
+
+.critical-alert {
+    animation: alert-pulse 1s infinite;
+    border-color: #ef4444 !important;
+}
+
+/* Leaflet Dark Theme */
+.leaflet-container { background: #020617 !important; }
+.leaflet-popup-content-wrapper {
+    background: #0f172a !important;
+    color: #10b981 !important;
+    border: 1px solid #10b981;
+    border-radius: 0;
+}
