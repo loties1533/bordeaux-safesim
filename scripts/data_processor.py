@@ -18,23 +18,13 @@ TYPE_LABELS = {
 
 # Points de référence sur la Garonne (rive gauche, du nord au sud)
 GARONNE_POINTS = [
-    (44.862, -0.612),  # Bacalan nord
-    (44.854, -0.598),  # Bassins à flots
-    (44.845, -0.573),  # Quais Chartrons
-    (44.838, -0.564),  # Quais centre
-    (44.830, -0.556),  # Quais Saint-Michel
-    (44.820, -0.548),  # Quais sud
+    (44.862, -0.563),  # Bacalan nord (Pont Chaban)
+    (44.854, -0.561),  # Chartrons nord
+    (44.845, -0.559),  # Quais Chartrons
+    (44.838, -0.557),  # Quais centre
+    (44.830, -0.554),  # Quais Saint-Michel
+    (44.820, -0.549),  # Quais sud
 ]
-
-# Seuil par quartier (canton) — prioritaire sur les coordonnées
-CANTON_SEUIL_MAP = [
-    (['bacalan', 'bastide', 'quai', 'benauge'], 2),
-    (['capucin', 'saint-michel', 'st michel', 'victoire', 'ste croix', 'sainte-croix'], 3),
-    (['meriadeck', 'mériadeck', 'chartrons', 'hotel de ville', 'quinconces', 'grand parc'], 5),
-    (['seurin', 'fondaudege', 'fondaudège', 'cauderan', 'caudéran', 'saint-augustin', 'st augustin'], 7),
-    (['cenon', 'floirac', 'lormont', 'bouliac'], 9),
-]
-
 
 def distance_km(lat1, lng1, lat2, lng2):
     dlat = (lat2 - lat1) * 111

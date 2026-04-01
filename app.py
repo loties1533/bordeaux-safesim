@@ -46,11 +46,8 @@ def simulate():
     total_capacite_ville = df_erp['capacite'].sum()
 
     for i, row in df_filtered.iterrows():
-        # Ajout d'un "bruit" visuel pour éviter l'effet de bloc par quartier (décalage entre 0 et 0.5m)
-        offset = (int(hashlib.md5(row['nom'].encode()).hexdigest(), 16) % 50) / 100
-        seuil_ajuste = row['seuil'] + offset
         
-        status = "danger" if niveau >= seuil_ajuste else "ok"
+        status = "danger" if niveau >= row['seuil'] else "ok"
         
         if status == "danger":
             total_impacte += row['capacite']
