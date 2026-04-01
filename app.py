@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import json
 import os
@@ -9,7 +9,6 @@ CORS(app)
 #  Chargement de la data 
 DATA_PATH = os.path.join('data', 'erp_managed.json')
 
-# JSON tests en attendant le Dev 1
 FAKE_DATA = [
     {"nom": "Gymnase Barbey",    "lat": 44.8268, "lng": -0.5703, "seuil": 3, "capacite": 500,  "type": "Sport"},
     {"nom": "École Achard",      "lat": 44.8612, "lng": -0.5445, "seuil": 6, "capacite": 300,  "type": "Scolaire"},
@@ -23,66 +22,64 @@ FAKE_DATA = [
     {"nom": "Centre Commercial", "lat": 44.8523, "lng": -0.5634, "seuil": 5, "capacite": 2000, "type": "Commerce"}
 ]
 
-# Charge le vrai JSON si dispo, sinon utilise fake data pour les tests
 if os.path.exists(DATA_PATH):
     with open(DATA_PATH, 'r', encoding='utf-8') as f:
         DATABASE = json.load(f)
-    print("✅ Vraie data chargée :", len(DATABASE), "bâtiments")
+    print(f"✅ Vraie data chargée : {len(DATABASE)} bâtiments")
 else:
     DATABASE = FAKE_DATA
-    print("⚠️  Data bidon chargée (en attente Dev 1)")
+    print("⚠️  Data de test chargée (en attente Dev 1)")
 
+# ─── Route d'affichage du Front ──────────────────────────
+@app.route('/')
+def index():
+    # Flask va chercher ce fichier dans le dossier /templates
+    return render_template('index.html')
 
-# Route principale 
+# ─── Route API pour la simulation ────────────────────────
 @app.route('/api/simulate', methods=['GET'])
 def simulate():
+    # Correction : on accepte 'level' (notre choix) ou 'niveau' (leur choix JS)
+    val = request.args.get('level') or request.args.get('niveau') or 0
+    level = int(val)
 
-    # Récupérer le niveau du slider
-    level = int(request.args.get('level', 0))
-
-    results   = []
-    impactes  = 0
+    results = []
+    impactes = 0
     cap_perdue = 0
 
-    # Algorithme de simulation
     for erp in DATABASE:
+        # Logique : si le niveau d'eau dépasse le seuil du bâtiment
         if level >= erp['seuil']:
             status = "danger"
-            impactes  += 1
+            impactes += 1
             cap_perdue += erp.get('capacite', 0)
         else:
             status = "ok"
 
+        # On renvoie les clés attendues par le contrat JSON + p.c pour le popup
         results.append({
-            "n":   erp['nom'],
+            "n": erp['nom'],
             "lat": erp['lat'],
             "lng": erp['lng'],
-            "s":   status,
-            "t":   erp.get('type', '')
+            "s": status,
+            "t": erp.get('type', ''),
+            "c": erp.get('capacite', 0)
         })
 
-    #  Calcul des stats
     total = len(DATABASE)
-    pct   = round((impactes / total) * 100, 1) if total > 0 else 0
+    pct = round((impactes / total) * 100, 1) if total > 0 else 0
 
-    #  Renvoyer le JSON au Front
+    # Renvoyer le JSON au Front avec les bonnes clés de stats
     return jsonify({
         "stats": {
-            "total":        total,
-            "impactes":     impactes,
-            "cap_perdue":   cap_perdue,
-            "pct":          pct
+            "total": total,
+            "impactes": impactes,
+            "cap_perdue": cap_perdue,
+            "pct": pct
         },
         "points": results
     })
 
-
-# Route de test
-@app.route('/')
-def home():
-    return "🧠 Cerveau opérationnel — /api/simulate?level=5"
-
-
-# Lancement de l'app Flask
 if __name__ == '__main__':
+    # On lance sur le port 5000, debug=True permet de relancer auto si tu modifies
     app.run(debug=True, port=5000)
