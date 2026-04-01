@@ -1,62 +1,85 @@
 from flask import Flask, render_template, jsonify, request
-import pandas as pd
+from flask_cors import CORS
+import json
 import os
 
 app = Flask(__name__)
+CORS(app)
 
+#  Chargement de la data 
+DATA_PATH = os.path.join('data', 'erp_managed.json')
+
+FAKE_DATA = [
+    {"nom": "Gymnase Barbey",    "lat": 44.8268, "lng": -0.5703, "seuil": 3, "capacite": 500,  "type": "Sport"},
+    {"nom": "École Achard",      "lat": 44.8612, "lng": -0.5445, "seuil": 6, "capacite": 300,  "type": "Scolaire"},
+    {"nom": "Mairie Bordeaux",   "lat": 44.8412, "lng": -0.5733, "seuil": 2, "capacite": 200,  "type": "Administratif"},
+    {"nom": "Gymnase Bacalan",   "lat": 44.8712, "lng": -0.5603, "seuil": 1, "capacite": 800,  "type": "Sport"},
+    {"nom": "École Meriadeck",   "lat": 44.8378, "lng": -0.5812, "seuil": 5, "capacite": 400,  "type": "Scolaire"},
+    {"nom": "Stade Chaban",      "lat": 44.8645, "lng": -0.5578, "seuil": 4, "capacite": 3000, "type": "Sport"},
+    {"nom": "École Saint-Louis", "lat": 44.8334, "lng": -0.5689, "seuil": 7, "capacite": 250,  "type": "Scolaire"},
+    {"nom": "Gymnase Bastide",   "lat": 44.8389, "lng": -0.5512, "seuil": 2, "capacite": 600,  "type": "Sport"},
+    {"nom": "Médiathèque",       "lat": 44.8456, "lng": -0.5734, "seuil": 8, "capacite": 350,  "type": "Culture"},
+    {"nom": "Centre Commercial", "lat": 44.8523, "lng": -0.5634, "seuil": 5, "capacite": 2000, "type": "Commerce"}
+]
+
+if os.path.exists(DATA_PATH):
+    with open(DATA_PATH, 'r', encoding='utf-8') as f:
+        DATABASE = json.load(f)
+    print(f"✅ Vraie data chargée : {len(DATABASE)} bâtiments")
+else:
+    DATABASE = FAKE_DATA
+    print("⚠️  Data de test chargée (en attente Dev 1)")
+
+# ─── Route d'affichage du Front ──────────────────────────
 @app.route('/')
 def index():
+    # Flask va chercher ce fichier dans le dossier /templates
     return render_template('index.html')
 
-# Chemin vers le futur fichier de ton pote
-DATA_PATH = 'data/processed/erp_managed.csv' # ou .json
-
-def load_data():
-    if os.path.exists(DATA_PATH):
-        # Si ton pote fait un CSV :
-        return pd.read_csv(DATA_PATH)
-        # Si ton pote fait un JSON, remplace par : return pd.read_json(DATA_PATH)
-    else:
-        # Tes données de test actuelles pour ne pas travailler dans le noir
-        data = [
-            {'id': 1, 'nom': 'TEST_ZONE_A', 'lat': 44.83, 'lon': -0.56, 'seuil_critique': 1.5, 'capacite': 100},
-            {'id': 2, 'nom': 'TEST_ZONE_B', 'lat': 44.85, 'lon': -0.58, 'seuil_critique': 3.0, 'capacite': 200}
-        ]
-        return pd.DataFrame(data)
-
-@app.route('/api/simulate')
+# ─── Route API pour la simulation ────────────────────────
+@app.route('/api/simulate', methods=['GET'])
 def simulate():
-    niveau = float(request.args.get('niveau', 0))
-    df_erp = load_data() # On recharge les données
-    
-    points = []
-    total_impacte = 0
-    total_capacite_ville = df_erp['capacite'].sum() if not df_erp.empty else 1
-    
-    for _, row in df_erp.iterrows():
-        status = "danger" if niveau >= row['seuil_critique'] else "ok"
-        if status == "danger":
-            total_impacte += row['capacite']
-            
-        points.append({
-            "id": str(row['id']), # On force en string pour le markersStore du JS
-            "lat": row['lat'],
-            "lon": row['lon'],
-            "nom": row['nom'],
-            "status": status,
-            "capacite": row['capacite']
+    # Correction : on accepte 'level' (notre choix) ou 'niveau' (leur choix JS)
+    val = request.args.get('level') or request.args.get('niveau') or 0
+    level = float(val)
+
+    results = []
+    impactes = 0
+    cap_perdue = 0
+
+    for erp in DATABASE:
+        # Logique : si le niveau d'eau dépasse le seuil du bâtiment
+        if level >= erp['seuil']:
+            status = "danger"
+            impactes += 1
+            cap_perdue += erp.get('capacite', 0)
+        else:
+            status = "ok"
+
+        # On renvoie les clés attendues par le contrat JSON + p.c pour le popup
+        results.append({
+            "n": erp['nom'],
+            "lat": erp['lat'],
+            "lng": erp['lng'],
+            "s": status,
+            "t": erp.get('type', ''),
+            "c": erp.get('capacite', 0)
         })
 
-    # Calcul réel de survie basé sur la capacité totale
-    survie = max(0, 100 - (total_impacte / total_capacite_ville * 100))
+    total = len(DATABASE)
+    pct = round((impactes / total) * 100, 1) if total > 0 else 0
 
+    # Renvoyer le JSON au Front avec les bonnes clés de stats
     return jsonify({
-        "statistiques": {
-            "total_impacte": int(total_impacte),
-            "pourcentage_survie": f"{round(survie, 1)}%"
+        "stats": {
+            "total": total,
+            "impactes": impactes,
+            "cap_perdue": cap_perdue,
+            "pct": pct
         },
-        "points": points
+        "points": results
     })
 
 if __name__ == '__main__':
+    # On lance sur le port 5000, debug=True permet de relancer auto si tu modifies
     app.run(debug=True, port=5000)
