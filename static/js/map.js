@@ -1,7 +1,7 @@
 const map = L.map('map', { 
     zoomControl: false,
     attributionControl: false,
-    renderer: L.canvas() // Plus performant pour des milliers de points
+    renderer: L.canvas() // ⚡ Performance pour gérer les milliers de points ERP
 }).setView([44.8377, -0.5792], 13);
 
 const themes = {
@@ -10,61 +10,73 @@ const themes = {
 };
 
 let baseTile = L.tileLayer(themes.dark).addTo(map);
+
+// Tracé de la Garonne pour l'effet visuel
+const garonnePath = [[44.8105, -0.5480], [44.8256, -0.5594], [44.8378, -0.5654], [44.8450, -0.5630], [44.8566, -0.5534], [44.8770, -0.5460]];
+const floodLayer = L.layerGroup().addTo(map);
 let markersStore = new Map();
 
+window.visualizeFlood = function(level) {
+    floodLayer.clearLayers();
+    if (level <= 0) return;
+    L.polyline(garonnePath, { color: '#3b82f6', weight: level * 45, opacity: 0.35, lineCap: 'round', interactive: false }).addTo(floodLayer);
+};
+
 window.updateMapPoints = function(points) {
-    if (!points) return;
-
     points.forEach(p => {
-        // ✅ Synchronisation avec les clés de ton app.py (p.s pour status)
-        const isDanger = (p.s === 'danger');
-        const color    = isDanger ? '#ef4444' : '#10b981';
-        const radius   = isDanger ? 8 : 5;
+        const color = p.status === 'ok' ? '#10b981' : '#ef4444';
+        const radius = p.status === 'ok' ? 5 : 8;
 
-        // Si le point existe déjà, on change juste son look (plus rapide)
-        if (markersStore.has(p.n)) {
-            const marker = markersStore.get(p.n);
+        // Construction du Pop-up détaillé
+        const popupContent = `
+            <div style="font-family: 'Share Tech Mono', monospace; min-width: 180px;">
+                <div style="border-bottom: 1px solid ${color}44; margin-bottom: 8px; padding-bottom: 4px;">
+                    <b style="color: ${color}; text-transform: uppercase; font-size: 14px;">${p.nom}</b>
+                </div>
+                <div style="font-size: 11px; line-height: 1.5; color: #94a3b8;">
+                    <div>TYPE: <span style="color: #f1f5f9;">${p.type}</span></div>
+                    <div>CAPACITÉ: <span style="color: #f1f5f9;">${p.capacite} pers.</span></div>
+                    <div>SEUIL CRITIQUE: <span style="color: #10b981;">${p.seuil_visuel}m</span></div>
+                    <div style="margin-top: 8px; padding: 2px 6px; background: ${p.status === 'danger' ? '#450a0a' : '#064e3b'}; color: ${p.status === 'danger' ? '#fecaca' : '#d1fae5'}; text-align: center; font-weight: bold; font-size: 10px;">
+                        ${p.status === 'danger' ? '⚠️ ZONE SUBMERGÉE' : '✅ OPÉRATIONNEL'}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (markersStore.has(p.id)) {
+            const marker = markersStore.get(p.id);
             marker.setStyle({ 
                 fillColor: color, 
-                color: isDanger ? '#ffffff' : color, 
-                weight: isDanger ? 2 : 1,
+                color: p.status === 'danger' ? '#fff' : color, 
                 radius: radius 
             });
+            // Mise à jour du contenu du pop-up (si l'utilisateur l'a ouvert)
+            marker.setPopupContent(popupContent);
         } else {
-            // Création du point s'il n'existe pas encore
-            const marker = L.circleMarker([p.lat, p.lng], {
-                radius: radius,
-                fillColor: color,
-                color: color,
-                weight: 1,
-                fillOpacity: 0.8
-            }).bindPopup(`
-                <div style="font-family: 'Share Tech Mono', monospace; min-width:150px;">
-                    <b style="color: ${color}; font-size:1.1em;">${p.n}</b><br>
-                    <hr style="border:0; border-top:1px solid #444; margin:5px 0;">
-                    TYPE: ${p.t}<br>
-                    CAPACITÉ: ${p.c || 'Non renseignée'}<br>
-                    STATUT: ${isDanger ? '⚠️ INONDÉ' : '✅ SEC'}
-                </div>
-            `);
+            const marker = L.circleMarker([p.lat, p.lon], { 
+                radius: radius, 
+                fillColor: color, 
+                color: color, 
+                weight: 1, 
+                fillOpacity: 0.8 
+            }).bindPopup(popupContent);
             
             marker.addTo(map);
-            markersStore.set(p.n, marker);
+            markersStore.set(p.id, marker);
         }
     });
 };
 
-// Gestion du changement de thème (Jour/Nuit)
-window.switchTheme = function(mode) {
-    baseTile.setUrl(themes[mode]);
-};
-
-// Correction bug d'affichage Leaflet au chargement
-setTimeout(() => map.invalidateSize(), 100);
-
-document.getElementById('theme-toggle').addEventListener('click', () => {
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const nextTheme = isLight ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    window.switchTheme(nextTheme);
+// Gestion du bouton Thème sécurisée
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-toggle');
+    if(btn) {
+        btn.addEventListener('click', () => {
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const next = isLight ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            baseTile.setUrl(themes[next]);
+        });
+    }
 });

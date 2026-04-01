@@ -1,11 +1,5 @@
 import csv
 import math
-import os
-
-# Base path du projet, permet d'exécuter le script depuis n'importe où
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW_DATA_PATH = os.path.join(BASE_DIR, 'data', 'raw_bor_erp.csv')
-OUT_DATA_PATH = os.path.join(BASE_DIR, 'data', 'bor_erp_managed.csv')
 
 TYPES_UTILES = ['R', 'U', 'J', 'X', 'W', 'L', 'O', 'S', 'M', 'T']
 
@@ -69,30 +63,6 @@ def get_seuil_coords(lat, lng):
     return 9
 
 
-def get_criticite(type_label):
-    """Retourne le niveau de criticité (0-9) par type d'établissement"""
-    criticites = {
-        'Hôpitaux / cliniques': 9,
-        'Maisons de retraite / handicapés': 8,
-        'Écoles / collèges / lycées': 7,
-        'Gymnases / sports couverts': 6,
-        'Mairies / administrations': 5,
-        'Salles de spectacle / conférences': 4,
-        'Hôtels / hébergements': 3,
-        'Centres commerciaux': 2,
-        'Bibliothèques / médiathèques': 1,
-        'Halls d\'exposition': 0,
-    }
-    return criticites.get(type_label, 0)
-
-
-def is_refuge(type_label, seuil):
-    """Détermine si un bâtiment peut servir de refuge"""
-    refuge_types = ['Gymnases / sports couverts', 'Écoles / collèges / lycées', 'Mairies / administrations']
-    return type_label in refuge_types and seuil >= 6
-
-
-
 def parse_coords(geometrie):
     if not geometrie.strip():
         return None, None
@@ -107,7 +77,7 @@ def parse_coords(geometrie):
 
 output_rows = []
 
-with open(RAW_DATA_PATH, 'r', encoding='utf-8') as csvfile:
+with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
     reader = csv.reader(csvfile, delimiter=';')
     next(reader)  # sauter l'en-tête
 
@@ -132,25 +102,19 @@ with open(RAW_DATA_PATH, 'r', encoding='utf-8') as csvfile:
         except ValueError:
             capacite = 0
 
-        type_label = TYPE_LABELS[type_erp]
-        seuil = get_seuil_coords(lat, lng)
-        
         output_rows.append({
             'nom': nom,
             'lat': lat,
             'lng': lng,
-            'type': type_label,
+            'type': TYPE_LABELS[type_erp],
             'capacite': capacite,
-            'seuil': seuil,
-            'criticite': get_criticite(type_label),
-            'est_refuge': 'oui' if is_refuge(type_label, seuil) else 'non',
+            'seuil': get_seuil_coords(lat, lng),
         })
 
-with open(OUT_DATA_PATH, 'w', newline='', encoding='utf-8') as outfile:
-    fieldnames = ['nom', 'lat', 'lng', 'type', 'capacite', 'seuil', 'criticite', 'est_refuge']
+with open('../data/bor_erp_managed.csv', 'w', newline='', encoding='utf-8') as outfile:
+    fieldnames = ['nom', 'lat', 'lng', 'type', 'capacite', 'seuil']
     writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter="|")
     writer.writeheader()
     writer.writerows(output_rows)
 
-print(f"✅ {len(output_rows)} établissements exportés dans bor_erp_managed.csv")
-print(f"📊 Colonnes : {', '.join(fieldnames)}")
+print(f"{len(output_rows)} établissements exportés dans bor_erp_managed.csv")
