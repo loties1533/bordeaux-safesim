@@ -18,12 +18,16 @@ TYPE_LABELS = {
 
 # Points de référence sur la Garonne (rive gauche, du nord au sud)
 GARONNE_POINTS = [
-    (44.862, -0.563),  # Bacalan nord (Pont Chaban)
+    (44.870, -0.563),  # Bacalan nord (Pont Chaban)
+    (44.862, -0.563),  # Bacalan
     (44.854, -0.561),  # Chartrons nord
-    (44.845, -0.559),  # Quais Chartrons
+    (44.848, -0.560),  # Chartrons
+    (44.841, -0.558),  # Miroir d'eau
     (44.838, -0.557),  # Quais centre
+    (44.833, -0.555),  # Quais milieu
     (44.830, -0.554),  # Quais Saint-Michel
-    (44.820, -0.549),  # Quais sud
+    (44.824, -0.551),  # Quais sud
+    (44.820, -0.549),  # Quais extrême sud
 ]
 
 def distance_km(lat1, lng1, lat2, lng2):
@@ -34,12 +38,14 @@ def distance_km(lat1, lng1, lat2, lng2):
 
 def get_seuil_coords(lat, lng):
     dist = min(distance_km(lat, lng, p[0], p[1]) for p in GARONNE_POINTS)
-    if dist < 0.5:  return 1
-    if dist < 1.0:  return 2
-    if dist < 1.8:  return 3
-    if dist < 2.8:  return 4
-    if dist < 3.8:  return 5
-    if dist < 5.0:  return 7
+    if dist < 0.3:  return 1
+    if dist < 0.6:  return 2
+    if dist < 1.0:  return 3
+    if dist < 1.5:  return 4
+    if dist < 2.2:  return 5
+    if dist < 3.0:  return 6
+    if dist < 4.0:  return 7
+    if dist < 5.5:  return 8
     return 9
 
 
