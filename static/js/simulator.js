@@ -8,7 +8,7 @@ slider.addEventListener('input', (e) => {
     const val = e.target.value;
     sliderVal.innerText = `${val}m`;
     
-    // Si niveau élevé, on change le look
+    // Alerte visuelle si le niveau dépasse 5m
     if(val > 5) {
         document.getElementById('controls').classList.add('critical-alert');
     } else {
@@ -21,15 +21,17 @@ slider.addEventListener('input', (e) => {
 
 async function triggerSimulation(level) {
     try {
-        const response = await fetch(`/api/simulate?niveau=${level}`);
+        // ✅ Correction : On utilise 'level' pour correspondre à ton app.py
+        const response = await fetch(`/api/simulate?level=${level}`);
         const data = await response.json();
         
-        // Update UI
-        survivalText.innerText = `${100 - data.stats.pct}%`;
-        survivalBar.style.width = `${100 - data.stats.pct}%`;
-        impactedText.innerText = `${data.stats.impactes} Impactés`;
+        // MISE À JOUR DE L'INTERFACE (UI)
+        // data.stats.pct contient déjà la string "XX%" calculée par le Python
+        survivalText.innerText = data.stats.pct;
+        survivalBar.style.width = data.stats.pct;
+        impactedText.innerText = `${data.stats.impactes} Bâtiments en danger`;
 
-        // Update Map (Fonction du Dev 3)
+        // MISE À JOUR DE LA CARTE (Fonction dans map.js)
         if (typeof updateMapPoints === "function") {
             updateMapPoints(data.points);
         }
@@ -37,4 +39,6 @@ async function triggerSimulation(level) {
         console.error("Erreur Simulation:", error);
     }
 }
+
+// Lancement initial à 0m
 triggerSimulation(0);

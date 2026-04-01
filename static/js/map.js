@@ -1,7 +1,7 @@
 const map = L.map('map', { 
     zoomControl: false,
     attributionControl: false,
-    renderer: L.canvas()
+    renderer: L.canvas() // Plus performant pour des milliers de points
 }).setView([44.8377, -0.5792], 13);
 
 const themes = {
@@ -16,21 +16,22 @@ window.updateMapPoints = function(points) {
     if (!points) return;
 
     points.forEach(p => {
-        // ✅ Clés corrigées
-        const color  = p.s === 'ok' ? '#10b981' : '#ef4444';
-        const radius = p.s === 'ok' ? 5 : 8;
+        // ✅ Synchronisation avec les clés de ton app.py (p.s pour status)
+        const isDanger = (p.s === 'danger');
+        const color    = isDanger ? '#ef4444' : '#10b981';
+        const radius   = isDanger ? 8 : 5;
 
-        // ✅ Utiliser p.n comme identifiant unique
+        // Si le point existe déjà, on change juste son look (plus rapide)
         if (markersStore.has(p.n)) {
             const marker = markersStore.get(p.n);
             marker.setStyle({ 
                 fillColor: color, 
-                color: p.s === 'danger' ? '#ffffff' : color, 
-                weight: p.s === 'danger' ? 2 : 1,
+                color: isDanger ? '#ffffff' : color, 
+                weight: isDanger ? 2 : 1,
                 radius: radius 
             });
         } else {
-            // ✅ p.lng au lieu de p.lon
+            // Création du point s'il n'existe pas encore
             const marker = L.circleMarker([p.lat, p.lng], {
                 radius: radius,
                 fillColor: color,
@@ -38,10 +39,12 @@ window.updateMapPoints = function(points) {
                 weight: 1,
                 fillOpacity: 0.8
             }).bindPopup(`
-                <div style="font-family: 'Share Tech Mono', monospace;">
-                    <b style="color: ${color}">${p.n}</b><br>
+                <div style="font-family: 'Share Tech Mono', monospace; min-width:150px;">
+                    <b style="color: ${color}; font-size:1.1em;">${p.n}</b><br>
+                    <hr style="border:0; border-top:1px solid #444; margin:5px 0;">
                     TYPE: ${p.t}<br>
-                    CAPACITÉ: ${p.c || 'Non renseignée'}
+                    CAPACITÉ: ${p.c || 'Non renseignée'}<br>
+                    STATUT: ${isDanger ? '⚠️ INONDÉ' : '✅ SEC'}
                 </div>
             `);
             
@@ -51,10 +54,12 @@ window.updateMapPoints = function(points) {
     });
 };
 
+// Gestion du changement de thème (Jour/Nuit)
 window.switchTheme = function(mode) {
     baseTile.setUrl(themes[mode]);
 };
 
+// Correction bug d'affichage Leaflet au chargement
 setTimeout(() => map.invalidateSize(), 100);
 
 document.getElementById('theme-toggle').addEventListener('click', () => {

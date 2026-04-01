@@ -2,84 +2,104 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 import json
 import os
+import csv  # Indispensable pour lire le fichier d'Axel
 
 app = Flask(__name__)
 CORS(app)
 
-#  Chargement de la data 
-DATA_PATH = os.path.join('data', 'erp_managed.json')
+# ─── CONFIGURATION DES CHEMINS ───────────────────────────
+# On cible le fichier généré par le script d'Axel
+DATA_PATH = os.path.join('data', 'bor_erp_managed.csv')
 
 FAKE_DATA = [
-    {"nom": "Gymnase Barbey",    "lat": 44.8268, "lng": -0.5703, "seuil": 3, "capacite": 500,  "type": "Sport"},
-    {"nom": "École Achard",      "lat": 44.8612, "lng": -0.5445, "seuil": 6, "capacite": 300,  "type": "Scolaire"},
-    {"nom": "Mairie Bordeaux",   "lat": 44.8412, "lng": -0.5733, "seuil": 2, "capacite": 200,  "type": "Administratif"},
-    {"nom": "Gymnase Bacalan",   "lat": 44.8712, "lng": -0.5603, "seuil": 1, "capacite": 800,  "type": "Sport"},
-    {"nom": "École Meriadeck",   "lat": 44.8378, "lng": -0.5812, "seuil": 5, "capacite": 400,  "type": "Scolaire"},
-    {"nom": "Stade Chaban",      "lat": 44.8645, "lng": -0.5578, "seuil": 4, "capacite": 3000, "type": "Sport"},
-    {"nom": "École Saint-Louis", "lat": 44.8334, "lng": -0.5689, "seuil": 7, "capacite": 250,  "type": "Scolaire"},
-    {"nom": "Gymnase Bastide",   "lat": 44.8389, "lng": -0.5512, "seuil": 2, "capacite": 600,  "type": "Sport"},
-    {"nom": "Médiathèque",       "lat": 44.8456, "lng": -0.5734, "seuil": 8, "capacite": 350,  "type": "Culture"},
-    {"nom": "Centre Commercial", "lat": 44.8523, "lng": -0.5634, "seuil": 5, "capacite": 2000, "type": "Commerce"}
+    {"nom": "MODE TEST : Gymnase Barbey", "lat": 44.8268, "lng": -0.5703, "seuil": 3, "capacite": 500},
+    {"nom": "MODE TEST : École Achard", "lat": 44.8612, "lng": -0.5445, "seuil": 6, "capacite": 300}
 ]
 
-if os.path.exists(DATA_PATH):
-    with open(DATA_PATH, 'r', encoding='utf-8') as f:
-        DATABASE = json.load(f)
-    print(f"✅ Vraie data chargée : {len(DATABASE)} bâtiments")
-else:
-    DATABASE = FAKE_DATA
-    print("⚠️  Data de test chargée (en attente Dev 1)")
+# ─── CHARGEMENT DE LA DATA (CSV -> PYTHON) ───────────────
+def load_database():
+    if os.path.exists(DATA_PATH):
+        try:
+            with open(DATA_PATH, 'r', encoding='utf-8') as f:
+                # Axel utilise le délimiteur "|" dans son script
+                reader = csv.DictReader(f, delimiter="|")
+                data = []
+                for row in reader:
+                    data.append({
+                        "nom": row['nom'],
+                        "lat": float(row['lat']),
+                        "lng": float(row['lng']),
+                        "type": row['type'],
+                        "capacite": int(row['capacite']) if row['capacite'] else 0,
+                        "seuil": int(row['seuil']) if row['seuil'] else 5
+                    })
+                print(f"✅ DATA RÉELLE CHARGÉE : {len(data)} établissements")
+                return data
+        except Exception as e:
+            print(f"❌ Erreur lors de la lecture du CSV d'Axel : {e}")
+            return FAKE_DATA
+    else:
+        print("⚠️ Fichier CSV introuvable dans /data. Passage en MODE TEST.")
+        return FAKE_DATA
 
-# ─── Route d'affichage du Front ──────────────────────────
+# On charge la base une seule fois au démarrage
+DATABASE = load_database()
+
+# ─── ROUTES ──────────────────────────────────────────────
+
 @app.route('/')
 def index():
-    # Flask va chercher ce fichier dans le dossier /templates
+    """Affiche l'interface War Room (le front d'Antoine/Orchestre)"""
     return render_template('index.html')
 
-# ─── Route API pour la simulation ────────────────────────
 @app.route('/api/simulate', methods=['GET'])
 def simulate():
-    # Correction : on accepte 'level' (notre choix) ou 'niveau' (leur choix JS)
+    """Le moteur de simulation piloté par le slider"""
+    # On récupère le niveau (0 à 10) envoyé par le slider
     val = request.args.get('level') or request.args.get('niveau') or 0
     level = float(val)
 
     results = []
-    impactes = 0
+    impactes_count = 0
     cap_perdue = 0
 
     for erp in DATABASE:
-        # Logique : si le niveau d'eau dépasse le seuil du bâtiment
+        # LOGIQUE DE CRISE : niveau d'eau >= seuil du bâtiment ?
         if level >= erp['seuil']:
             status = "danger"
-            impactes += 1
-            cap_perdue += erp.get('capacite', 0)
+            impactes_count += 1
+            cap_perdue += erp['capacite']
         else:
             status = "ok"
 
-        # On renvoie les clés attendues par le contrat JSON + p.c pour le popup
+        # On renvoie les clés simplifiées pour économiser de la bande passante
+        # n: nom, lat/lng: coords, s: status, t: type, c: capacité
         results.append({
             "n": erp['nom'],
             "lat": erp['lat'],
             "lng": erp['lng'],
             "s": status,
-            "t": erp.get('type', ''),
-            "c": erp.get('capacite', 0)
+            "t": erp['type'],
+            "c": erp['capacite']
         })
 
-    total = len(DATABASE)
-    pct = round((impactes / total) * 100, 1) if total > 0 else 0
+    # Statistiques globales pour les compteurs du haut
+    total_batiments = len(DATABASE)
+    # Pourcentage d'impact (utilisé par la barre de survie)
+    pct_impact = round((impactes_count / total_batiments) * 100, 1) if total_batiments > 0 else 0
+    # Texte de survie (ex: "85%")
+    survie_text = f"{int(100 - pct_impact)}%"
 
-    # Renvoyer le JSON au Front avec les bonnes clés de stats
     return jsonify({
         "stats": {
-            "total": total,
-            "impactes": impactes,
+            "total": total_batiments,
+            "impactes": impactes_count,
             "cap_perdue": cap_perdue,
-            "pct": pct
+            "pct": survie_text  # Le front attend une string avec %
         },
         "points": results
     })
 
+# ─── LANCEMENT ───────────────────────────────────────────
 if __name__ == '__main__':
-    # On lance sur le port 5000, debug=True permet de relancer auto si tu modifies
     app.run(debug=True, port=5000)
