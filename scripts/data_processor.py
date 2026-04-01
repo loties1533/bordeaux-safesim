@@ -53,22 +53,6 @@ def get_seuil_coords(lat, lng):
     return 9
 
 
-def get_seuil_canton(canton):
-    canton_lower = canton.lower()
-    for keywords, seuil in CANTON_SEUIL_MAP:
-        if any(k in canton_lower for k in keywords):
-            return seuil
-    return None  # canton non reconnu
-
-
-def get_seuil(canton, lat, lng):
-    if canton:
-        seuil = get_seuil_canton(canton)
-        if seuil is not None:
-            return seuil
-    return get_seuil_coords(lat, lng)
-
-
 def parse_coords(geometrie):
     if not geometrie.strip():
         return None, None
@@ -96,7 +80,6 @@ with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
             continue
 
         nom = row[1].strip().title()
-        canton = row[9].strip()
         capacite_raw = row[11].strip()
         geometrie = row[12].strip()
 
@@ -115,7 +98,7 @@ with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
             'lng': lng,
             'type': TYPE_LABELS[type_erp],
             'capacite': capacite,
-            'seuil': get_seuil(canton, lat, lng),
+            'seuil': get_seuil_coords(lat, lng),
         })
 
 with open('../data/bor_erp_managed.csv', 'w', newline='', encoding='utf-8') as outfile:
