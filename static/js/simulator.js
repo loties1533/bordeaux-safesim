@@ -25,9 +25,9 @@ async function triggerSimulation(level) {
         const data = await response.json();
         
         // Update UI
-        survivalText.innerText = data.statistiques.pourcentage_survie;
-        survivalBar.style.width = data.statistiques.pourcentage_survie;
-        impactedText.innerText = `${data.statistiques.total_impacte} Impactés`;
+        survivalText.innerText = `${100 - data.stats.pct}%`;
+        survivalBar.style.width = `${100 - data.stats.pct}%`;
+        impactedText.innerText = `${data.stats.impactes} Impactés`;
 
         // Update Map (Fonction du Dev 3)
         if (typeof updateMapPoints === "function") {
