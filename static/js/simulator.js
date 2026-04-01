@@ -3,6 +3,9 @@ const sliderVal = document.getElementById('slider-val');
 const survivalBar = document.getElementById('survival-bar');
 const survivalText = document.getElementById('stat-survival');
 const impactedText = document.getElementById('stat-impacted');
+const criticalText = document.getElementById('stat-critical');
+const refugesText = document.getElementById('stat-refuges');
+const refugeCapText = document.getElementById('stat-refuge-cap');
 
 slider.addEventListener('input', (e) => {
     const val = e.target.value;
@@ -30,6 +33,11 @@ async function triggerSimulation(level) {
         survivalText.innerText = data.stats.pct;
         survivalBar.style.width = data.stats.pct;
         impactedText.innerText = `${data.stats.impactes} Bâtiments en danger`;
+        
+        // ✅ NOUVELLES STATS : Criticité + Refuges
+        criticalText.innerText = data.stats.critical_count || 0;
+        refugesText.innerText = data.stats.refuges_available || 0;
+        refugeCapText.innerText = `${data.stats.refuge_capacity || 0} places`;
 
         // MISE À JOUR DE LA CARTE (Fonction dans map.js)
         if (typeof updateMapPoints === "function") {
