@@ -6,7 +6,7 @@ const survivalBar = document.getElementById('survival-bar');
 
 function updateSimulation() {
     const level = slider.value;
-    sliderVal.innerText = `${parseFloat(level).toFixed(2)}m`;
+    sliderVal.innerText = `${parseFloat(level).toFixed(1)}m`;
 
     fetch(`/api/simulate?niveau=${level}`)
         .then(res => res.json())
@@ -32,5 +32,10 @@ function updateSimulation() {
         });
 }
 
-slider.addEventListener('input', updateSimulation);
+let debounceTimer = null;
+slider.addEventListener('input', () => {
+    sliderVal.innerText = `${parseFloat(slider.value).toFixed(1)}m`;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(updateSimulation, 120);
+});
 updateSimulation();
