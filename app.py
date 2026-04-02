@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 
 app = Flask(__name__)
 
@@ -32,8 +32,26 @@ DF_ALL, DF_DISPLAY = _load()
 # --- ROUTES ---
 
 @app.route('/')
-def index():
+def home():
+    """Page d'accueil de présentation du projet Safe-City."""
+    return render_template('home.html')
+
+@app.route('/simulation')
+def simulation():
+    """Page du simulateur de crue (War Room)."""
     return render_template('index.html')
+
+@app.route('/heat-map')
+def heat_map():
+    """Page des îlots de chaleur/fraîcheur."""
+    return render_template('heat.html')
+
+@app.route('/api/thermique')
+def api_thermique():
+    """Sert le fichier GeoJSON directement depuis le dossier data racine"""
+    return send_from_directory('data', 'ri_icu_ifu_s.geojson')
+
+# --- API DE SIMULATION ---
 
 @app.route('/api/simulate')
 def simulate():
