@@ -3,7 +3,7 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    background-color: #020617;
+    background-color: #020617; /* Fond sombre pour éviter le flash blanc au chargement */
 }
 
 #map {
@@ -21,60 +21,67 @@ html, body {
 /* --- UI DESIGN --- */
 body { font-family: 'Share Tech Mono', monospace; }
 
-/* On s'assure que le panneau de contrôle survole la carte */
+/* MODIF : Panneau de contrôle en mode sombre pour matcher avec le texte émeraude */
 aside#controls {
-    background: rgba(255, 255, 255, 0.9) !important;
-    color: #0f172a !important;
-    border: 1px solid #10b981;
+    background: rgba(15, 23, 42, 0.9) !important; /* Bleu nuit transparent */
+    color: #10b981 !important; /* Texte vert émeraude */
+    border: 1px solid rgba(16, 185, 129, 0.5); /* Bordure émeraude subtile */
     z-index: 1000;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
+/* MODIF : Affichage du niveau de la crue (Slider Value) */
 #slider-val {
-    color: #064e3b !important;
-    background: #d1fae5 !important;
+    color: #ffffff !important;
+    background: #064e3b !important;
+    border: 1px solid #10b981;
+    padding: 2px 8px;
 }
 
-.text-emerald-400 { color: #059669 !important; }
+/* Forçage de la couleur émeraude pour les textes */
+.text-emerald-400 { color: #10b981 !important; }
 
 /* Custom Slider */
 #crisis-slider {
     appearance: none;
     background: #1e293b;
-    height: 4px;
-    border-radius: 2px;
+    height: 6px;
+    border-radius: 3px;
 }
 
 #crisis-slider::-webkit-slider-thumb {
     appearance: none;
-    height: 18px;
-    width: 18px;
+    height: 20px;
+    width: 20px;
     background: #10b981;
-    border: 2px solid #064e3b;
+    border: 2px solid #ffffff; /* Petit cercle blanc pour mieux voir le curseur */
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 0 10px #10b981;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
 }
 
-/* Animation Pulse pour l'alerte critique */
+/* Animation Pulse pour l'alerte critique (couleur rouge conservée) */
 @keyframes alert-pulse {
-    0% { box-shadow: 0 0 0px rgba(239, 68, 68, 0); }
-    50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
-    100% { box-shadow: 0 0 0px rgba(239, 68, 68, 0); }
+    0% { border-color: #ef4444; box-shadow: 0 0 0px rgba(239, 68, 68, 0); }
+    50% { border-color: #f87171; box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
+    100% { border-color: #ef4444; box-shadow: 0 0 0px rgba(239, 68, 68, 0); }
 }
 
 .critical-alert {
     animation: alert-pulse 1s infinite;
-    border-color: #ef4444 !important;
+    border: 2px solid #ef4444 !important; /* On force la bordure rouge */
 }
 
-/* Style des Popups Leaflet */
+/* --- STYLE DES POPUPS LEAFLET --- */
 .leaflet-popup-content-wrapper {
-    background: #0f172a !important;
+    background: #0f172a !important; /* Fond sombre identique au panneau */
     color: #10b981 !important;
     border: 1px solid #10b981;
     border-radius: 0;
+    font-family: 'Share Tech Mono', monospace;
 }
 
 .leaflet-popup-tip {
-    background: #10b981 !important;
+    background: #0f172a !important;
+    border: 1px solid #10b981;
 }
