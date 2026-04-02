@@ -28,11 +28,11 @@ def index():
 
 @app.route('/api/simulate')
 def simulate():
-    niveau = float(request.args.get('niveau', 0))
+    niveau = float(request.args.get('level', request.args.get('niveau', 0)))
     df_erp = load_data()
     
     if df_erp.empty:
-        return jsonify({"statistiques": {"total_impacte": 0, "pourcentage_survie": "100%"}, "points": []})
+        return jsonify({"stats": {"impactes": 0, "pct": "100%"}, "points": []})
 
     points = []
     total_impacte = 0
@@ -67,9 +67,9 @@ def simulate():
     survie = max(0, 100 - (total_impacte / total_capacite_ville * 100))
 
     return jsonify({
-        "statistiques": {
-            "total_impacte": int(total_impacte),
-            "pourcentage_survie": f"{round(survie, 1)}%"
+        "stats": {
+            "impactes": int(total_impacte),
+            "pct": f"{round(survie, 1)}%"
         },
         "points": points
     })
