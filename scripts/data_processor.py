@@ -1,5 +1,11 @@
 import csv
 import math
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RAW_DATA_PATH  = os.path.join(BASE_DIR, 'data', 'raw_bor_erp.csv')
+OUT_DATA_PATH  = os.path.join(BASE_DIR, 'data', 'bor_erp_managed.csv')
+INSEE_PATH     = os.path.join(BASE_DIR, 'data', 'raw', 'donnees_communes.csv')
 
 TYPES_UTILES = ['R', 'U', 'J', 'X', 'W', 'L', 'O', 'S', 'M', 'T']
 
@@ -16,44 +22,31 @@ TYPE_LABELS = {
     'T': "Halls d'exposition",
 }
 
-# Points de référence sur la Garonne (rive gauche, du nord au sud)
-# Points extraits du tronçon centerline BD Carthage 2017 (IGN/SANDRE),
-# reprojetés Lambert-93 → WGS84, échantillonnés tous les ~400m.
+# Communes Bordeaux Métropole : code INSEE → population (INSEE RP 2021)
+COMMUNES_BM = {
+    '33063': 259809,  # Bordeaux
+    '33281': 70362,   # Mérignac
+    '33522': 62000,   # Pessac
+    '33550': 42000,   # Talence
+    '33249': 24000,   # Le Bouscat
+    '33032': 27000,   # Bègles
+    '33119': 19800,   # Eysines
+    '33270': 22500,   # Lormont
+    '33075': 16500,   # Bruges
+    '33167': 17500,   # Floirac
+}
+
 GARONNE_POINTS = [
-    (44.781493, -0.517437),
-    (44.786596, -0.520592),
-    (44.790417, -0.522796),
-    (44.793928, -0.524493),
-    (44.798034, -0.525828),
-    (44.801932, -0.526837),
-    (44.805729, -0.527916),
-    (44.809299, -0.529097),
-    (44.812959, -0.530599),
-    (44.816312, -0.532490),
-    (44.819924, -0.534802),
-    (44.823562, -0.538530),
-    (44.826445, -0.542207),
-    (44.829595, -0.547744),
-    (44.832856, -0.554161),
-    (44.836275, -0.559714),
-    (44.839326, -0.563477),
-    (44.842458, -0.566220),
-    (44.846642, -0.568006),
-    (44.850106, -0.566351),
-    (44.852893, -0.563005),
-    (44.857032, -0.554159),
-    (44.859685, -0.548716),
-    (44.862579, -0.544751),
-    (44.866245, -0.542207),
-    (44.870818, -0.541164),
-    (44.874460, -0.539567),
-    (44.878296, -0.537410),
-    (44.881800, -0.535945),
-    (44.886720, -0.535362),
-    (44.891742, -0.536050),
-    (44.895270, -0.537106),
-    (44.898750, -0.538615),
+    (44.882, -0.565), (44.878, -0.564), (44.874, -0.563),
+    (44.870, -0.563), (44.866, -0.563), (44.862, -0.562),
+    (44.858, -0.562), (44.854, -0.561), (44.850, -0.560),
+    (44.846, -0.559), (44.843, -0.558), (44.840, -0.558),
+    (44.837, -0.557), (44.834, -0.556), (44.831, -0.555),
+    (44.828, -0.553), (44.825, -0.552), (44.822, -0.550),
+    (44.819, -0.549), (44.815, -0.547), (44.811, -0.545),
+    (44.807, -0.543), (44.803, -0.541), (44.799, -0.539),
 ]
+
 
 def distance_km(lat1, lng1, lat2, lng2):
     dlat = (lat2 - lat1) * 111
@@ -74,6 +67,82 @@ def get_seuil_coords(lat, lng):
     return 9
 
 
+def get_criticite(type_label):
+    criticites = {
+        'Hôpitaux / cliniques': 9,
+        'Maisons de retraite / handicapés': 8,
+        'Écoles / collèges / lycées': 7,
+        'Gymnases / sports couverts': 6,
+        'Mairies / administrations': 5,
+        'Salles de spectacle / conférences': 4,
+        'Hôtels / hébergements': 3,
+        'Centres commerciaux': 2,
+        'Bibliothèques / médiathèques': 1,
+        "Halls d'exposition": 0,
+    }
+    return criticites.get(type_label, 0)
+
+
+def is_refuge(type_label, seuil):
+    refuge_types = ['Gymnases / sports couverts', 'Écoles / collèges / lycées', 'Mairies / administrations']
+    return type_label in refuge_types and seuil >= 6
+
+
+def find_commune(lat, lng):
+    """Trouve la commune la plus proche parmi les communes BM."""
+    best_code = '33063'
+    best_dist = float('inf')
+    centres = {
+        '33063': (44.8378, -0.5792),
+        '33281': (44.8378, -0.6436),
+        '33522': (44.8067, -0.6306),
+        '33550': (44.8056, -0.5906),
+        '33249': (44.8644, -0.6003),
+        '33032': (44.8083, -0.5508),
+        '33119': (44.8847, -0.6408),
+        '33270': (44.8728, -0.5236),
+        '33075': (44.8853, -0.6003),
+        '33167': (44.8303, -0.5200),
+    }
+    for code, (clat, clng) in centres.items():
+        d = distance_km(lat, lng, clat, clng)
+        if d < best_dist:
+            best_dist = d
+            best_code = code
+    return best_code
+
+
+def load_insee_population():
+    """Charge la population depuis donnees_communes.csv — colonne CODCOM + PMUN."""
+    pop = {}
+    if not os.path.exists(INSEE_PATH):
+        print(f"⚠️  INSEE absent ({INSEE_PATH}) — utilisation des valeurs hardcodées")
+        return {}
+    try:
+        with open(INSEE_PATH, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f, delimiter=';')
+            for row in reader:
+                codcom = row.get('CODCOM', '').strip()
+                pmun   = row.get('PMUN', '').strip()
+                if codcom and pmun:
+                    try:
+                        pop[codcom] = int(float(pmun))
+                    except ValueError:
+                        pass
+        print(f"✅ INSEE : {len(pop)} communes chargées")
+    except Exception as e:
+        print(f"⚠️  Erreur lecture INSEE : {e}")
+    return pop
+
+
+def get_population(lat, lng, insee_data):
+    """Retourne la population de la commune la plus proche."""
+    code = find_commune(lat, lng)
+    if code in insee_data:
+        return insee_data[code]
+    return COMMUNES_BM.get(code, 259809)
+
+
 def parse_coords(geometrie):
     if not geometrie.strip():
         return None, None
@@ -86,11 +155,13 @@ def parse_coords(geometrie):
         return None, None
 
 
+# ── Chargement INSEE
+insee_data  = load_insee_population()
 output_rows = []
 
-with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
+with open(RAW_DATA_PATH, 'r', encoding='utf-8') as csvfile:
     reader = csv.reader(csvfile, delimiter=';')
-    next(reader)  # sauter l'en-tête
+    next(reader)
 
     for row in reader:
         if len(row) < 13:
@@ -100,32 +171,41 @@ with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
         if type_erp not in TYPES_UTILES:
             continue
 
-        nom = row[1].strip().title()
+        nom          = row[1].strip().title()
         capacite_raw = row[11].strip()
-        geometrie = row[12].strip()
+        geometrie    = row[12].strip()
 
         lat, lng = parse_coords(geometrie)
-        if lat is None or lng is None:
-            continue  # ignorer les lignes sans coordonnées
+        if lat is None:
+            continue
 
         try:
             capacite = int(float(capacite_raw)) if capacite_raw else 0
         except ValueError:
             capacite = 0
 
+        type_label = TYPE_LABELS[type_erp]
+        seuil      = get_seuil_coords(lat, lng)
+        population = get_population(lat, lng, insee_data)
+
         output_rows.append({
-            'nom': nom,
-            'lat': lat,
-            'lng': lng,
-            'type': TYPE_LABELS[type_erp],
-            'capacite': capacite,
-            'seuil': get_seuil_coords(lat, lng),
+            'nom':        nom,
+            'lat':        lat,
+            'lng':        lng,
+            'type':       type_label,
+            'capacite':   capacite,
+            'seuil':      seuil,
+            'criticite':  get_criticite(type_label),
+            'est_refuge': 'oui' if is_refuge(type_label, seuil) else 'non',
+            'population': population,
         })
 
-with open('../data/bor_erp_managed.csv', 'w', newline='', encoding='utf-8') as outfile:
-    fieldnames = ['nom', 'lat', 'lng', 'type', 'capacite', 'seuil']
+fieldnames = ['nom', 'lat', 'lng', 'type', 'capacite', 'seuil', 'criticite', 'est_refuge', 'population']
+
+with open(OUT_DATA_PATH, 'w', newline='', encoding='utf-8') as outfile:
     writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter="|")
     writer.writeheader()
     writer.writerows(output_rows)
 
-print(f"{len(output_rows)} établissements exportés dans bor_erp_managed.csv")
+print(f"✅ {len(output_rows)} établissements exportés dans bor_erp_managed.csv")
+print(f"📊 Colonnes : {', '.join(fieldnames)}")
