@@ -70,9 +70,11 @@ def simulate():
         reachable = pd.notna(flood_req)
         zone = row.get('zone_ppri')
 
-        # Un ERP est submergé si le niveau de crue atteint le seuil
-        # calculé par le flood fill (topographie complète prise en compte)
-        is_flooded = reachable and niveau >= float(flood_req)
+        # Un ERP est submergé si le niveau de crue dépasse :
+        # - le seuil de connectivité hydraulique (flood fill) : l'eau peut atteindre sa zone
+        # - ET l'altitude réelle du bâtiment : l'eau a monté jusqu'à son rez-de-chaussée
+        effective_threshold = max(float(flood_req), float(row['altitude'])) if reachable else None
+        is_flooded = reachable and niveau >= effective_threshold
         status = "danger" if is_flooded else "ok"
 
         if is_flooded:
@@ -87,7 +89,7 @@ def simulate():
             "capacite": int(row['capacite']),
             "type": row['type'],
             "alt": row['altitude'],
-            "flood_req": round(float(flood_req), 2) if reachable else None,
+            "flood_req": round(effective_threshold, 2) if reachable else None,
             "zone_ppri": zone if pd.notna(zone) and isinstance(zone, str) else None,
         })
 

@@ -9,7 +9,7 @@ import urllib.request
 
 import geopandas as gpd
 import numpy as np
-from scipy.ndimage import median_filter
+from scipy.ndimage import median_filter, minimum_filter
 from shapely.geometry import Point
 
 # ── Constantes ERP ────────────────────────────────────────────────────────────
@@ -317,7 +317,9 @@ for _ in range(3):
         val = nanmean(neighbors)
         if not np.isnan(val):
             dem_work[r, c] = val
-dem_smoothed = median_filter(dem_work, size=3).astype(np.float32)
+# Filtre minimum 3×3 : abaisse les pics isolés (remblais DEM artificiels)
+# puis médian pour lisser sans créer de nouveaux artefacts
+dem_smoothed = minimum_filter(median_filter(dem_work, size=3), size=3).astype(np.float32)
 dem_smoothed[nodata_mask] = -9999
 dem = dem_smoothed
 print(f"  MNT {dem.shape[0]}×{dem.shape[1]} chargé et lissé. Lancement du flood fill (Dijkstra)...")
