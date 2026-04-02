@@ -1,14 +1,14 @@
-from flask import Flask, render_template, jsonify, request
-import pandas as pd
 import os
 import hashlib
+import pandas as pd
+from flask import Flask, render_template, jsonify, request
 
 app = Flask(__name__)
 
-# Configuration des chemins
-DATA_PATH = 'data/bor_erp_managed.csv'
+# --- CONFIGURATION ---
+DATA_PATH = os.path.join('data', 'bor_erp_managed.csv')
 
-# Types d'ERP prioritaires pour la gestion de crise
+# Liste des ERP prioritaires pour l'affichage et la gestion de crise
 TYPES_CRITIQUES = [
     'Hôpitaux / cliniques', 
     'Maisons de retraite / handicapés', 
@@ -16,11 +16,23 @@ TYPES_CRITIQUES = [
     'Écoles / collèges / lycées'
 ]
 
-def load_data():
-    if os.path.exists(DATA_PATH):
-        # Lecture avec le délimiteur "|" utilisé par ton collègue
-        return pd.read_csv(DATA_PATH, sep="|")
-    return pd.DataFrame()
+# --- LOGIQUE DE DONNÉES ---
+
+def load_clean_data():
+    """Charge le CSV et nettoie les erreurs d'altimétrie."""
+    if not os.path.exists(DATA_PATH):
+        return pd.DataFrame()
+    
+    df = pd.read_csv(DATA_PATH, sep="|")
+    
+    # On ignore les points où l'altitude a échoué (-9999) 
+    # pour ne pas fausser les stats ou la carte
+    if not df.empty and 'altitude' in df.columns:
+        df = df[df['altitude'] > -100]
+        
+    return df
+
+# --- ROUTES ---
 
 @app.route('/')
 def index():
@@ -28,28 +40,43 @@ def index():
 
 @app.route('/api/simulate')
 def simulate():
-    niveau = float(request.args.get('niveau', 0))
-    df_erp = load_data()
+    # 1. Récupération du niveau du slider (défaut 0.0)
+    try:
+        niveau = float(request.args.get('niveau', 0))
+    except ValueError:
+        niveau = 0.0
+
+    # 2. Chargement des données
+    df_erp = load_clean_data()
     
     if df_erp.empty:
-        return jsonify({"statistiques": {"total_impacte": 0, "pourcentage_survie": "100%"}, "points": []})
+        return jsonify({
+            "statistiques": {"total_impacte": 0, "pourcentage_impact": "0%"},
+            "points": []
+        })
 
+    # 3. Initialisation des compteurs
     points = []
     total_impacte = 0
-    
-    # Filtrage pour la clarté visuelle
-    # On garde : les types critiques OU les bâtiments avec capacité > 20
-    mask = (df_erp['type'].isin(TYPES_CRITIQUES)) | (df_erp['capacite'] > 20)
-    df_filtered = df_erp[mask]
-    
-    # Capacité totale basée sur le fichier complet pour la précision statistique
     total_capacite_ville = df_erp['capacite'].sum()
 
-    for i, row in df_filtered.iterrows():
+    # 4. Filtrage pour la performance visuelle de la carte
+    # On n'affiche que les ERP critiques OU ceux ayant une capacité > 20
+    mask = (df_erp['type'].isin(TYPES_CRITIQUES)) | (df_erp['capacite'] > 20)
+    df_display = df_erp[mask]
+
+    # 5. Traitement des points
+    for i, row in df_display.iterrows():
+        # Génération d'un petit offset aléatoire constant par établissement (0 à 0.49m)
+        # Cela évite que tous les bâtiments coulent pile à la même seconde
+        seed = row['nom'].encode()
+        offset = (int(hashlib.md5(seed).hexdigest(), 16) % 50) / 100
+        altitude_ajustee = row['altitude'] + offset
         
-        status = "danger" if niveau >= row['seuil'] else "ok"
+        is_flooded = niveau >= altitude_ajustee
+        status = "danger" if is_flooded else "ok"
         
-        if status == "danger":
+        if is_flooded:
             total_impacte += row['capacite']
             
         points.append({
@@ -60,19 +87,20 @@ def simulate():
             "status": status,
             "capacite": int(row['capacite']),
             "type": row['type'],
-            "seuil_visuel": row['seuil'] # Ajouté pour l'affichage dans le pop-up JS
+            "alt": row['altitude'] # Envoyé pour le pop-up JS
         })
 
-    # Calcul du taux de survie global
-    survie = max(0, 100 - (total_impacte / total_capacite_ville * 100))
+    # 6. Calcul du taux d'impact global (0% -> 100%)
+    impact_rate = (total_impacte / total_capacite_ville * 100) if total_capacite_ville > 0 else 0
 
     return jsonify({
         "statistiques": {
             "total_impacte": int(total_impacte),
-            "pourcentage_survie": f"{round(survie, 1)}%"
+            "pourcentage_impact": f"{round(impact_rate, 1)}%"
         },
         "points": points
     })
 
 if __name__ == '__main__':
+    # Mode debug actif pour le développement
     app.run(debug=True, port=5000)

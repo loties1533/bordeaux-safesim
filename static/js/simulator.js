@@ -1,40 +1,36 @@
 const slider = document.getElementById('crisis-slider');
 const sliderVal = document.getElementById('slider-val');
+const statSurvival = document.getElementById('stat-survival');
+const statImpacted = document.getElementById('stat-impacted');
 const survivalBar = document.getElementById('survival-bar');
-const survivalText = document.getElementById('stat-survival');
-const impactedText = document.getElementById('stat-impacted');
 
-slider.addEventListener('input', (e) => {
-    const val = e.target.value;
-    sliderVal.innerText = `${val}m`;
-    
-    // Si niveau élevé, on change le look
-    if(val > 5) {
-        document.getElementById('controls').classList.add('critical-alert');
-    } else {
-        document.getElementById('controls').classList.remove('critical-alert');
-    }
+function updateSimulation() {
+    const level = slider.value;
+    sliderVal.innerText = `${parseFloat(level).toFixed(2)}m`;
 
-    // Appel au Backend
-    triggerSimulation(val);
-});
+    fetch(`/api/simulate?niveau=${level}`)
+        .then(res => res.json())
+        .then(data => {
+            // On affiche le taux d'impact envoyé par app.py
+            statSurvival.innerText = data.statistiques.pourcentage_impact;
+            statImpacted.innerText = `${data.statistiques.total_impacte.toLocaleString()} habitants impactés`;
 
-async function triggerSimulation(level) {
-    try {
-        const response = await fetch(`/api/simulate?niveau=${level}`);
-        const data = await response.json();
-        
-        // Update UI
-        survivalText.innerText = data.statistiques.pourcentage_survie;
-        survivalBar.style.width = data.statistiques.pourcentage_survie;
-        impactedText.innerText = `${data.statistiques.total_impacte} Impactés`;
+            // Remplissage de la barre
+            survivalBar.style.width = data.statistiques.pourcentage_impact;
+            
+            // Changement de couleur dynamique
+            const percent = parseFloat(data.statistiques.pourcentage_impact);
+            if (percent > 50) {
+                survivalBar.className = "bg-red-600 h-full transition-all duration-500";
+            } else if (percent > 20) {
+                survivalBar.className = "bg-orange-500 h-full transition-all duration-500";
+            } else {
+                survivalBar.className = "bg-emerald-500 h-full transition-all duration-500";
+            }
 
-        // Update Map (Fonction du Dev 3)
-        if (typeof updateMapPoints === "function") {
-            updateMapPoints(data.points);
-        }
-    } catch (error) {
-        console.error("Erreur Simulation:", error);
-    }
+            if (window.updateMapPoints) window.updateMapPoints(data.points);
+        });
 }
-triggerSimulation(0);
+
+slider.addEventListener('input', updateSimulation);
+updateSimulation();

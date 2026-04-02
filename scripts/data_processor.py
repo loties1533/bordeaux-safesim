@@ -1,5 +1,8 @@
 import csv
-import math
+import time
+import urllib.request
+import urllib.parse
+import json
 
 TYPES_UTILES = ['R', 'U', 'J', 'X', 'W', 'L', 'O', 'S', 'M', 'T']
 
@@ -16,51 +19,9 @@ TYPE_LABELS = {
     'T': "Halls d'exposition",
 }
 
-# Points de référence sur la Garonne (rive gauche, du nord au sud)
-GARONNE_POINTS = [
-    (44.882, -0.565),  # Garonne amont nord
-    (44.878, -0.564),  # Bacalan très nord
-    (44.874, -0.563),  # Pont Chaban nord
-    (44.870, -0.563),  # Pont Chaban
-    (44.866, -0.563),  # Bacalan nord
-    (44.862, -0.562),  # Bacalan
-    (44.858, -0.562),  # Bacalan sud
-    (44.854, -0.561),  # Chartrons nord
-    (44.850, -0.560),  # Chartrons
-    (44.846, -0.559),  # Chartrons sud
-    (44.843, -0.558),  # Quais Chartrons extrême sud
-    (44.840, -0.558),  # Miroir d'eau
-    (44.837, -0.557),  # Quais centre
-    (44.834, -0.556),  # Quais centre sud
-    (44.831, -0.555),  # Quais milieu
-    (44.828, -0.553),  # Quais Saint-Michel
-    (44.825, -0.552),  # Saint-Michel sud
-    (44.822, -0.550),  # Quais sud nord
-    (44.819, -0.549),  # Quais sud
-    (44.815, -0.547),  # Quais sud extrême
-    (44.811, -0.545),  # Quais très sud
-    (44.807, -0.543),  # Garonne aval nord
-    (44.803, -0.541),  # Garonne aval
-    (44.799, -0.539),  # Garonne aval sud
-]
-
-def distance_km(lat1, lng1, lat2, lng2):
-    dlat = (lat2 - lat1) * 111
-    dlng = (lng2 - lng1) * 111 * math.cos(math.radians(lat1))
-    return math.sqrt(dlat**2 + dlng**2)
-
-
-def get_seuil_coords(lat, lng):
-    dist = min(distance_km(lat, lng, p[0], p[1]) for p in GARONNE_POINTS)
-    if dist < 0.25: return 1
-    if dist < 0.50: return 2
-    if dist < 0.80: return 3
-    if dist < 1.20: return 4
-    if dist < 1.70: return 5
-    if dist < 2.40: return 6
-    if dist < 3.20: return 7
-    if dist < 4.50: return 8
-    return 9
+IGN_ALTI_URL = 'https://data.geopf.fr/altimetrie/1.0/calcul/alti/rest/elevation.json'
+BATCH_SIZE = 50   # points par requête
+SLEEP_BETWEEN_BATCHES = 0.3  # secondes
 
 
 def parse_coords(geometrie):
@@ -74,6 +35,45 @@ def parse_coords(geometrie):
     except ValueError:
         return None, None
 
+
+def fetch_altitudes(rows):
+    """Interroge l'API IGN par batch (POST) et retourne une liste d'altitudes (même ordre que rows)."""
+    altitudes = []
+    total = len(rows)
+
+    for start in range(0, total, BATCH_SIZE):
+        batch = rows[start:start + BATCH_SIZE]
+        lats = ','.join(str(r['lat']) for r in batch)
+        lngs = ','.join(str(r['lng']) for r in batch)
+
+        params = urllib.parse.urlencode({
+            'lon': lngs,
+            'lat': lats,
+            'resource': 'ign_rge_alti_wld',
+            'delimiter': ',',
+        })
+        url = f'{IGN_ALTI_URL}?{params}'
+
+        try:
+            with urllib.request.urlopen(url, timeout=15) as resp:
+                data = json.loads(resp.read())
+            batch_alts = [e.get('z', -9999) for e in data.get('elevations', [])]
+            while len(batch_alts) < len(batch):
+                batch_alts.append(-9999)
+        except Exception as exc:
+            print(f"  Erreur batch {start}–{start+len(batch)}: {exc}")
+            batch_alts = [-9999] * len(batch)
+
+        altitudes.extend(batch_alts)
+        done = min(start + BATCH_SIZE, total)
+        print(f"  {done}/{total} altitudes récupérées...", end='\r')
+        time.sleep(SLEEP_BETWEEN_BATCHES)
+
+    print()
+    return altitudes
+
+
+# ── Lecture et filtrage du CSV source ────────────────────────────────────────
 
 output_rows = []
 
@@ -95,7 +95,7 @@ with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
 
         lat, lng = parse_coords(geometrie)
         if lat is None or lng is None:
-            continue  # ignorer les lignes sans coordonnées
+            continue
 
         try:
             capacite = int(float(capacite_raw)) if capacite_raw else 0
@@ -108,12 +108,22 @@ with open('../data/raw_bor_erp.csv', 'r', encoding='utf-8') as csvfile:
             'lng': lng,
             'type': TYPE_LABELS[type_erp],
             'capacite': capacite,
-            'seuil': get_seuil_coords(lat, lng),
         })
 
+print(f"{len(output_rows)} établissements chargés. Récupération des altitudes IGN...")
+
+# ── Enrichissement altimétrique ───────────────────────────────────────────────
+
+altitudes = fetch_altitudes(output_rows)
+
+for row, alt in zip(output_rows, altitudes):
+    row['altitude'] = round(alt, 2)
+
+# ── Export ────────────────────────────────────────────────────────────────────
+
 with open('../data/bor_erp_managed.csv', 'w', newline='', encoding='utf-8') as outfile:
-    fieldnames = ['nom', 'lat', 'lng', 'type', 'capacite', 'seuil']
-    writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter="|")
+    fieldnames = ['nom', 'lat', 'lng', 'type', 'capacite', 'altitude']
+    writer = csv.DictWriter(outfile, fieldnames=fieldnames, delimiter='|')
     writer.writeheader()
     writer.writerows(output_rows)
 
