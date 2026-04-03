@@ -2,30 +2,41 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Bordeaux Safe-City Hub</title>
+    <title>Fluxify</title>
     <link rel="icon" type="image/svg+xml" href="/static/icons/logo.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="flex items-center justify-center min-h-screen">
     <div class="max-w-4xl w-full px-8">
-        <header class="text-center mb-20">
+        <header class="text-center mb-10">
+            <img src="/static/icons/logo.svg" alt="Logo Fluxify" class="mx-auto w-32 h-32 mb-8">
+        
             <h1 class="text-6xl font-bold text-white mb-4 font-title tracking-tight">
-                Bordeaux <span class="text-emerald-400">Safe-City</span>
+                Fluxify
             </h1>
-            <p class="text-slate-400 text-xl font-light italic">Plateforme métropolitaine de résilience</p>
+            <p class="text-slate-400 text-xl font-light italic">Plateforme métropolitaine de résilience<br></p>
+
+            <div class="text-slate-400 font-light mb-6 text-sm leading-relaxed max-w-3xl mx-auto">
+                <p class="mb-4">
+                    <br>Face à l'urgence climatique et aux défis environnementaux croissants, l'anticipation est devenue notre bouclier le plus précieux. Notre plateforme est née d'une conviction simple : pour se protéger efficacement, il faut pouvoir visualiser le risque.
+                </p>
+                <p>
+                    Nous transformons des données environnementales complexes en outils cartographiques interactifs, fluides et accessibles à tous. Notre objectif ? Fournir une véritable vigie numérique pour la métropole bordelaise, permettant aux citoyens comme aux décideurs de comprendre leur environnement pour mieux agir.
+                </p>
+            </div>
         </header>
 
         <div class="grid md:grid-cols-2 gap-8">
             <div class="glass-panel !static w-full hover:bg-slate-800/40 transition-all cursor-pointer group" onclick="location.href='/simulation'">
                 <h2 class="text-2xl font-bold mb-3 font-title text-emerald-400">Simulation de Crues</h2>
-                <p class="text-slate-400 font-light mb-8">Simulation hydrologique prédictive basée sur le relief IGN.</p>
+                <p class="text-slate-400 font-light mb-4">Simulation hydrologique prédictive basée sur le relief IGN.</p>
                 <span class="font-semibold italic">Lancer la simulation →</span>
             </div>
 
             <div class="glass-panel !static w-full hover:bg-slate-800/40 transition-all cursor-pointer group" onclick="location.href='/heat-map'">
                 <h2 class="text-2xl font-bold mb-3 font-title text-orange-400">Îlots de Fraîcheur/Chaleur</h2>
-                <p class="text-slate-400 font-light mb-8">Cartographie des points de fraîcheur et de vulnérabilité thermique.</p>
+                <p class="text-slate-400 font-light mb-4">Cartographie des points de fraîcheur et de vulnérabilité thermique.</p>
                 <span class="font-semibold italic">Consulter la carte →</span>
             </div>
         </div>
