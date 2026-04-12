@@ -81,5 +81,12 @@ Cette application est configurée pour être facilement déployable sur des plat
 *   **Procfile** : Présent à la racine pour indiquer la commande de démarrage (`web: gunicorn app:app`).
 *   *Note pour Render : Veillez à spécifier la variable d'environnement `PYTHON_VERSION=3.11.9` pour assurer la compatibilité logicielle de Geopandas/Pandas.*
 
+## 👥 Auteurs
+
+Ce projet a été réalisé par :
+*   **Antoine** : [https://github.com/add1ktion](https://github.com/add1ktion)
+*   **Alexis** : [https://github.com/loties1533](https://github.com/loties1533)
+*   **Axel** : [https://github.com/AxelNAY](https://github.com/AxelNAY)
+
 ---
 *Fait avec ❤️ pour Holberton School & Bordeaux Métropole*
